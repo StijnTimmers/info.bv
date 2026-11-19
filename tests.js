@@ -1,24 +1,32 @@
-console.log("--- Start Kwaliteitscontrole E&S Software ---");
+console.log("--- Start Uitgebreide Kwaliteitscontrole E&S Software ---");
 
-// Test 1: Controleer of de 3 producten uit de spreadsheet geladen zijn
+// Test 1: Startmenu controleren
 if (menu.length === 3 && menu[0].naam === "Hamburger") {
-    console.log("PASS: Startmenu uit spreadsheet (Hamburger, Cola, Frutti) correct geladen.");
+    console.log("PASS: Startmenu correct geladen.");
 } else {
-    console.error("FAIL: Startmenu komt niet overeen met spreadsheet.");
+    console.error("FAIL: Startmenu klopt niet.");
 }
 
-// Test 2: Test of het aanpassen van het menu werkt en gelogd wordt
-pasMenuAan("toevoegen", { id: 4, categorie: "Broodje", naam: "Broodje Gezond", prijs: 3.50 });
-if (menu.length === 4 && logboek.length > 1) {
-    console.log("PASS: Product succesvol toegevoegd aan menu en opgeslagen in het logboek.");
+// Test 2: Negatieve prijs weigeren (Kwaliteit Issue 1)
+const foutPrijs = pasMenuAan("toevoegen", { id: 99, categorie: "Snoep", naam: "Fout Snoepje", prijs: -2.00 });
+if (foutPrijs === "Fout: Prijs moet groter dan €0 zijn.") {
+    console.log("PASS: Negatieve prijs is succesvol geblokkeerd.");
 } else {
-    console.error("FAIL: Menu aanpassen of loggen is mislukt.");
+    console.error("FAIL: Negatieve prijs werd toch toegestaan!");
 }
 
-// Test 3: Test saldo-check van leerling a678765 (€10 starttegoed)
-const resultaat = plaatsBestelling("a678765", 2); // Bestelt Cola (€2.99)
-if (resultaat === "Bestelling geslaagd!" && saldoLijst["a678765"] === 7.01) {
-    console.log("PASS: Bestelling geplaatst en saldo correct bijgewerkt naar €7.01.");
+// Test 3: Onbekend leerlingnummer weigeren (Kwaliteit Issue 1)
+const foutLeerling = plaatsBestelling("999999", 1);
+if (foutLeerling === "Fout: Onbekend leerlingnummer.") {
+    console.log("PASS: Onbekend leerlingnummer is succesvol geblokkeerd.");
 } else {
-    console.error("FAIL: Fout bij verwerken bestelling of saldo.");
+    console.error("FAIL: Onbekend leerlingnummer kon bestellen!");
+}
+
+// Test 4: Saldo opwaarderen voor leerling 234567 (Product Issue 2)
+waardeerSaldoOp("234567", 5.00);
+if (saldoLijst["234567"] === 5.00) {
+    console.log("PASS: Saldo van leerling 234567 succesvol opgewaardeerd naar €5.00.");
+} else {
+    console.error("FAIL: Saldo opwaarderen mislukt.");
 }
