@@ -17,19 +17,25 @@ let logboek = [
     { timestamp: "2026-09-25 12:00:37", message: "Nieuwe gebruiker (234567) kreeg €0 starttegoed." }
 ];
 
-// Hulpfunctie om acties op te slaan in het logboek
 function voegLogToe(bericht) {
     const nu = new Date().toISOString().replace('T', ' ').substring(0, 19);
     logboek.push({ timestamp: nu, message: bericht });
 }
 
-// HOOFDFUNCTIE: Het bestelmenu aanpassen (toevoegen, wijzigen of verwijderen)
+// HOOFDFUNCTIE: Het bestelmenu aanpassen (inclusief foutafhandeling voor Kwaliteit Issue 1)
 function pasMenuAan(actie, item) {
     if (actie === "toevoegen") {
+        if (!item.naam || item.prijs <= 0) {
+            console.error("Fout: Ongeldige productnaam of negatieve/nul prijs.");
+            return "Fout: Prijs moet groter dan €0 zijn.";
+        }
         menu.push(item);
         voegLogToe(`Menu uitgebreid: ${item.naam} (${item.categorie}) voor €${item.prijs.toFixed(2)}.`);
     } 
     else if (actie === "wijzigen") {
+        if (item.prijs !== undefined && item.prijs <= 0) {
+            return "Fout: Prijs moet groter dan €0 zijn.";
+        }
         const index = menu.findIndex(product => product.id === item.id);
         if (index !== -1) {
             menu[index] = { ...menu[index], ...item };
@@ -40,16 +46,36 @@ function pasMenuAan(actie, item) {
         menu = menu.filter(product => product.id !== item.id);
         voegLogToe(`Product met ID ${item.id} verwijderd van het menu.`);
     }
+    
+    // Update de tabel op de webpagina als deze in de browser geopend is
+    toonMenuOpPagina();
     return menu;
 }
 
-// Extra functie uit jullie sheet: Een bestelling plaatsen en saldo afschrijven
-function plaatsBestelling(leerlingnummer, productId) {
-    const product = menu.find(p => p.id === productId);
-    if (!product) return "Product bestaat niet.";
+// NIEUWE FUNCTIE (Product Issue 2): Saldo opwaarderen voor een leerling
+function waardeerSaldoOp(leerlingnummer, bedrag) {
+    if (bedrag <= 0) {
+        return "Fout: Opwaardeerbedrag moet positief zijn.";
+    }
+    if (saldoLijst[leerlingnummer] === undefined) {
+        saldoLijst[leerlingnummer] = 0.00;
+        voegLogToe(`Nieuwe gebruiker (${leerlingnummer}) aangemaakt.`);
+    }
+    saldoLijst[leerlingnummer] += bedrag;
+    voegLogToe(`Saldo van ${leerlingnummer} opgewaardeerd met €${bedrag.toFixed(2)}. Nieuw saldo: €${saldoLijst[leerlingnummer].toFixed(2)}.`);
+    return `Nieuw saldo: €${saldoLijst[leerlingnummer].toFixed(2)}`;
+}
 
-    if ((saldoLijst[leerlingnummer] || 0) >= product.prijs) {
-        saldoLijst[leerlingnummer] -= product.prijs;
+// Bestelling plaatsen (inclusief check op onbekend leerlingnummer voor Kwaliteit Issue 1)
+function plaatsBestelling(leerlingnummer, productId) {
+    if (saldoLijst[leerlingnummer] === undefined) {
+        return "Fout: Onbekend leerlingnummer.";
+    }
+    const product = menu.find(p => p.id === productId);
+    if (!product) return "Fout: Product bestaat niet.";
+
+    if (saldoLijst[leerlingnummer] >= product.prijs) {
+        saldoLijst[leerlingnummer] = Number((saldoLijst[leerlingnummer] - product.prijs).toFixed(2));
         bestellingen.push({
             timestamp: new Date().toISOString(),
             leerlingnummer: leerlingnummer,
@@ -62,7 +88,44 @@ function plaatsBestelling(leerlingnummer, productId) {
         return "Onvoldoende saldo!";
     }
 }
-// Voorbeeldgebruik testen in de console:
-console.log("Huidig menu:", bestelMenu);
-pasMenuAan("toevoegen", { id: 4, naam: "Appel", prijs: 0.75, beschikbaar: true });
-pasMenuAan("wijzigen", { id: 2, prijs: 2.25 }); // Prijs van de tosti verhogen
+
+// KOPPELING MET HTML (Product Issue 1)
+function toonMenuOpPagina() {
+    if (typeof document === "undefined") return;
+    const tabelBody = document.getElementById("menu-tabel");
+    if (!tabelBody) return;
+
+    tabelBody.innerHTML = "";
+    menu.forEach(item => {
+        const rij = `<tr>
+            <td>${item.id}</td>
+            <td>${item.categorie}</td>
+            <td>${item.naam}</td>
+            <td>€${item.prijs.toFixed(2)}</td>
+            <td><button class="btn-verwijder" onclick="pasMenuAan('verwijderen', { id: ${item.id} })">Verwijder</button></td>
+        </tr>`;
+        tabelBody.innerHTML += rij;
+    });
+}
+
+function voegProductToeVanafPagina() {
+    const naam = document.getElementById("nieuw-naam").value;
+    const categorie = document.getElementById("nieuw-categorie").value;
+    const prijs = parseFloat(document.getElementById("nieuw-prijs").value);
+
+    if (!naam || isNaN(prijs) || prijs <= 0) {
+        alert("Vul een geldige naam en een prijs hoger dan €0,00 in!");
+        return;
+    }
+
+    const nieuwId = menu.length > 0 ? Math.max(...menu.map(p => p.id)) + 1 : 1;
+    pasMenuAan("toevoegen", { id: nieuwId, categorie: categorie, naam: naam, prijs: prijs });
+
+    document.getElementById("nieuw-naam").value = "";
+    document.getElementById("nieuw-prijs").value = "";
+}
+
+// Laad het menu zodra de pagina opent
+if (typeof window !== "undefined") {
+    window.onload = toonMenuOpPagina;
+}
