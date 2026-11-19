@@ -11,40 +11,64 @@
             padding: 0;
             background-color: #f4f7f6;
             color: #333;
-            text-align: center;
         }
         header {
             background-color: #2c3e50;
             color: white;
-            padding: 50px 20px;
+            padding: 40px 20px;
+            text-align: center;
         }
         h1 { margin: 0; font-size: 2.5em; }
         .subtitle { font-size: 1.2em; margin-top: 10px; color: #bdc3c7; }
-        .features {
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .features, .stappen {
             display: flex;
             justify-content: center;
             gap: 20px;
-            padding: 40px 20px;
+            margin: 30px 0;
             flex-wrap: wrap;
         }
-        .card {
+        .card, .box {
             background: white;
             padding: 25px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 250px;
         }
+        .card { width: 240px; text-align: center; }
         .card h3 { color: #27ae60; }
-        .cta-button {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 15px 30px;
+        .box { margin-bottom: 30px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        th { background-color: #2c3e50; color: white; }
+        input, select, button {
+            padding: 10px;
+            margin: 5px 5px 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        button {
             background-color: #27ae60;
             color: white;
-            text-decoration: none;
-            border-radius: 5px;
+            border: none;
+            cursor: pointer;
             font-weight: bold;
         }
+        button:hover { background-color: #219150; }
+        .btn-verwijder { background-color: #e74c3c; padding: 6px 12px; }
+        .btn-verwijder:hover { background-color: #c0392b; }
     </style>
 </head>
 <body>
@@ -52,23 +76,68 @@
     <header>
         <h1>E&S Software</h1>
         <p class="subtitle">Nooit meer in de rij staan in de schoolkantine.</p>
-        <a href="#voordelen" class="cta-button">Ontdek de mogelijkheden</a>
     </header>
 
-    <section id="voordelen" class="features">
-        <div class="card">
-            <h3>Handig</h3>
-            <p>Eenvoudig in gebruik voor zowel kantinemedewerkers als leerlingen op elk apparaat.</p>
-        </div>
-        <div class="card">
-            <h3>Snel</h3>
-            <p>Bestel vooraf je broodje en haal het direct op zonder lange wachtrijen in de pauze.</p>
-        </div>
-        <div class="card">
-            <h3>Slim</h3>
-            <p>Pas het bestelmenu direct aan op basis van voorraad en voorkom voedselverspilling.</p>
-        </div>
-    </section>
+    <div class="container">
+        <!-- 3 Kernwaarden -->
+        <section class="features">
+            <div class="card">
+                <h3>Handig</h3>
+                <p>Eenvoudig in gebruik voor zowel kantinemedewerkers als leerlingen op elk apparaat.</p>
+            </div>
+            <div class="card">
+                <h3>Snel</h3>
+                <p>Bestel vooraf je broodje en haal het direct op zonder lange wachtrijen in de pauze.</p>
+            </div>
+            <div class="card">
+                <h3>Slim</h3>
+                <p>Pas het bestelmenu direct aan op basis van voorraad en voorkom voedselverspilling.</p>
+            </div>
+        </section>
 
+        <!-- Stappenplan voor leerlingen (Marketing Issue 2) -->
+        <section class="box">
+            <h2>Hoe werkt het voor leerlingen?</h2>
+            <p><strong>1. Kies je product</strong> uit het actuele kantine-menu hieronder.</p>
+            <p><strong>2. Betaal vooraf</strong> veilig en snel met je eigen leerling-saldo.</p>
+            <p><strong>3. Haal direct op</strong> bij de snelle afhaalbalie zonder in de rij te staan!</p>
+        </section>
+
+        <!-- Visueel Bestelmenu (Marketing Issue 1 & Product Issue 1) -->
+        <section class="box">
+            <h2>Actueel Kantine Menu</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Categorie</th>
+                        <th>Product</th>
+                        <th>Prijs</th>
+                        <th>Actie</th>
+                    </tr>
+                </thead>
+                <tbody id="menu-tabel">
+                    <!-- Wordt automatisch gevuld door app.js -->
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Beheerpaneel voor kantinemedewerkers (Product Issue 1) -->
+        <section class="box">
+            <h2>Menu beheren (Voor medewerkers)</h2>
+            <p>Voeg hier een nieuw product toe aan het bestelmenu:</p>
+            <input type="text" id="nieuw-naam" placeholder="Productnaam (bijv. Tosti)">
+            <select id="nieuw-categorie">
+                <option value="Broodje">Broodje</option>
+                <option value="Drinken">Drinken</option>
+                <option value="Snoep">Snoep</option>
+            </select>
+            <input type="number" id="nieuw-prijs" placeholder="Prijs (bijv. 2.50)" step="0.01" min="0.01">
+            <button onclick="voegProductToeVanafPagina()">Toevoegen aan menu</button>
+        </section>
+    </div>
+
+    <!-- Koppeling met app.js -->
+    <script src="app.js"></script>
 </body>
 </html>
