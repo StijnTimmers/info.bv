@@ -1,135 +1,255 @@
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('E&S Software - Kantine')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>E&S Software</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 15px; color: #333; }
+    .card { display: none; max-width: 500px; margin: 20px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .active { display: block; }
+    h2 { color: #2c3e50; margin-top: 0; }
+    input, select, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 15px; }
+    button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; }
+    button:hover { background: #219150; }
+    .btn-sec { background: #34495e; }
+    .btn-uitlog { background: #e74c3c; margin-top: 20px; }
+    .btn-klein { width: auto; padding: 6px 12px; margin: 0; font-size: 13px; }
+    .rij { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+    
+    /* Grote Kantine App Knoppen */
+    .app-navigatie { display: flex; gap: 10px; margin-bottom: 20px; }
+    .app-knop { flex: 1; padding: 15px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; background: #e0e6ed; color: #2c3e50; border: 2px solid transparent; }
+    .app-knop.active-app { background: #eef6ff; border-color: #3498db; color: #3498db; }
+    
+    .privacy-text { font-size: 11px; color: #7f8c8d; text-align: center; margin-top: 15px; line-height: 1.4; }
+    .saldo-kaart { background: #eef6ff; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #cce0ff; }
+  </style>
+</head>
+<body>
 
-function setupEnVulTestData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  const structuur = {
-    'Organisaties': ['Organisatie_ID', 'Naam', 'Actief'],
-    'Gebruikers': ['Gebruiker_ID', 'Organisatie_ID', 'Gebruikersnaam', 'Wachtwoord', 'Rol', 'Saldo'],
-    'Menu': ['Product_ID', 'Organisatie_ID', 'Categorie', 'Naam', 'Prijs', 'Voorraad'],
-    'Bestellingen': ['Bestelling_ID', 'Organisatie_ID', 'Timestamp', 'Gebruiker_ID', 'Items', 'Totaalbedrag', 'Status']
-  };
+  <!-- 1. INLOGSCHERM -->
+  <div id="scherm-login" class="card active">
+    <h2>🍔 E&S Software</h2>
+    <input type="text" id="inlog-naam" placeholder="Gebruikersnaam">
+    <input type="password" id="inlog-ww" placeholder="Wachtwoord">
+    <button id="btn-login" onclick="inloggen()">Veilig Inloggen</button>
+    <p id="foutmelding" style="color: red; font-weight: bold; text-align: center;"></p>
+    
+    <div class="privacy-text">
+      🔒 <b>Privacyreglement:</b> Door in te loggen ga je akkoord met onze voorwaarden. Jouw bestelgeschiedenis en saldo worden uitsluitend opgeslagen in de beveiligde schoolomgeving om je bestelling te verwerken. Je gegevens worden nooit gedeeld met derden.
+    </div>
+  </div>
 
-  for (const sheetName in structuur) {
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) sheet = ss.insertSheet(sheetName);
-    sheet.clear(); 
-    const headers = structuur[sheetName];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-  }
+  <!-- 2. LEERLING / KLANT SCHERM -->
+  <div id="scherm-klant" class="card">
+    <h2>Welkom, <span id="klant-naam"></span> 👋</h2>
+    
+    <div class="saldo-kaart">
+      <div>
+        <small style="color: gray;">Huidig Saldo</small><br>
+        <b style="font-size: 1.2em; color: #0056b3;">€<span id="klant-saldo">0.00</span></b>
+      </div>
+      <button class="btn-klein" style="background: #0056b3;" onclick="opwaarderen()">+ Opwaarderen</button>
+    </div>
 
-  ss.getSheetByName('Organisaties').appendRow(['ORG-001', 'Test School', true]);
-  ss.getSheetByName('Gebruikers').appendRow(['USR-1', 'ORG-001', 'stijn', '1234', 'Klant', 10.00]);
-  ss.getSheetByName('Gebruikers').appendRow(['USR-2', 'ORG-001', 'kantine', '1234', 'Medewerker', 0.00]);
-  
-  ss.getSheetByName('Menu').appendRow(['PRD-1', 'ORG-001', 'Broodje', 'Hamburger', 2.50, 20]);
-  ss.getSheetByName('Menu').appendRow(['PRD-2', 'ORG-001', 'Drinken', 'Cola', 1.50, 30]);
-  ss.getSheetByName('Menu').appendRow(['PRD-3', 'ORG-001', 'Snoep', 'Frutti', 1.00, 50]);
-}
+    <h3>🍽️ Menu</h3>
+    <div id="menu-lijst">Menu laden...</div>
+    
+    <hr style="margin: 20px 0;">
+    <h3>🛒 Winkelmandje (<span id="mandje-aantal">0</span>)</h3>
+    <p id="mandje-items" style="color: gray; font-size: 14px;">Nog niets gekozen</p>
+    <p><strong>Totaal: €<span id="mandje-totaal">0.00</span></strong></p>
+    <button onclick="bestelNu()">Bestelling Plaatsen</button>
+    <button class="btn-uitlog" onclick="uitloggen()">Uitloggen</button>
+  </div>
 
-function getSheetData(sheetName) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  if (!sheet || sheet.getLastRow() <= 1) return [];
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  return data.map((row, index) => {
-    let obj = { _rijNummer: index + 2 };
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
-}
+  <!-- 3. KANTINEMEDEWERKER SCHERM -->
+  <div id="scherm-kantine" class="card">
+    
+    <div class="app-navigatie">
+      <div class="app-knop active-app" id="app-orders-btn" onclick="wisselKantineApp('orders')">📦 Bestellingen App</div>
+      <div class="app-knop" id="app-voorraad-btn" onclick="wisselKantineApp('voorraad')">📊 Voorraad App</div>
+    </div>
 
-function verifieerLogin(gebruikersnaam, wachtwoord) {
-  const gebruikers = getSheetData('Gebruikers');
-  const user = gebruikers.find(u => String(u.Gebruikersnaam).toLowerCase() === String(gebruikersnaam).toLowerCase() && String(u.Wachtwoord) === String(wachtwoord));
-  
-  if (user) {
-    return { success: true, userId: user.Gebruiker_ID, orgId: user.Organisatie_ID, rol: user.Rol, naam: user.Gebruikersnaam, saldo: user.Saldo };
-  }
-  return { success: false, message: 'Onjuiste inloggegevens!' };
-}
+    <!-- App 1: Bestellingen -->
+    <div id="app-orders">
+      <button class="btn-sec" onclick="laadBestellingen()">🔄 Ververs Bestellingen</button>
+      <div id="bestellingen-lijst" style="margin-top: 15px;">Laden...</div>
+    </div>
 
-function opwaarderen(userId, bedrag) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Gebruikers');
-  const gebruikers = getSheetData('Gebruikers');
-  const user = gebruikers.find(u => u.Gebruiker_ID === userId);
-  
-  if (user) {
-    const nieuwSaldo = Number(user.Saldo) + Number(bedrag);
-    sheet.getRange(user._rijNummer, 6).setValue(nieuwSaldo); 
-    return nieuwSaldo;
-  }
-  return false;
-}
+    <!-- App 2: Voorraad -->
+    <div id="app-voorraad" style="display: none;">
+      <p style="font-size: 13px; color: gray;"><i>Wijzigingen in de voorraad worden direct gesynchroniseerd met de Google Spreadsheet.</i></p>
+      <div id="voorraad-lijst">Laden...</div>
+    </div>
 
-function haalMenuOp(orgId) {
-  return getSheetData('Menu').filter(item => String(item.Organisatie_ID) === String(orgId));
-}
+    <button class="btn-uitlog" onclick="uitloggen()">Uitloggen</button>
+  </div>
 
-function pasVoorraadAan(productId, verschil) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Menu');
-  const menu = getSheetData('Menu');
-  const item = menu.find(m => m.Product_ID === productId);
-  
-  if (item) {
-    let nieuweVoorraad = Number(item.Voorraad) + Number(verschil);
-    if(nieuweVoorraad < 0) nieuweVoorraad = 0;
-    sheet.getRange(item._rijNummer, 6).setValue(nieuweVoorraad); 
-  }
-}
+  <script>
+    let huidigeGebruiker = null;
+    let mandje = [];
+    let totaalBedrag = 0;
 
-function plaatsBestelling(orgId, userId, items, totaal) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  const gebruikers = getSheetData('Gebruikers');
-  const user = gebruikers.find(u => u.Gebruiker_ID === userId);
-  if (Number(user.Saldo) < Number(totaal)) return { success: false, message: 'Onvoldoende saldo!' };
-  
-  ss.getSheetByName('Gebruikers').getRange(user._rijNummer, 6).setValue(Number(user.Saldo) - Number(totaal));
-
-  const menuSheet = ss.getSheetByName('Menu');
-  const menuData = getSheetData('Menu');
-  items.forEach(besteldItem => {
-    let menuItem = menuData.find(m => m.Naam === besteldItem);
-    if(menuItem) {
-      menuSheet.getRange(menuItem._rijNummer, 6).setValue(Number(menuItem.Voorraad) - 1);
-      menuItem.Voorraad -= 1;
+    function toonScherm(id) {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
     }
-  });
 
-  const sheet = ss.getSheetByName('Bestellingen');
-  const id = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
-  sheet.appendRow([id, orgId, new Date(), userId, items.join(', '), totaal, 'Nieuw']);
-  
-  return { success: true, message: 'Bestelling ' + id + ' is geplaatst!', nieuwSaldo: (Number(user.Saldo) - Number(totaal)) };
-}
+    function uitloggen() {
+      huidigeGebruiker = null; mandje = []; totaalBedrag = 0;
+      document.getElementById('foutmelding').innerText = '';
+      toonScherm('scherm-login');
+    }
 
-function haalBestellingenOp(orgId) {
-  return getSheetData('Bestellingen')
-    .filter(b => String(b.Organisatie_ID) === String(orgId))
-    .map(b => {
-      // FIX: Zet de Google Datum om naar tekst, anders crasht de web-app!
-      b.Timestamp = new Date(b.Timestamp).toLocaleString('nl-NL');
-      return b;
-    });
-}
+    function inloggen() {
+      const naam = document.getElementById('inlog-naam').value;
+      const ww = document.getElementById('inlog-ww').value;
+      document.getElementById('btn-login').innerText = 'Bezig met inloggen...';
 
-function updateOrderStatus(bestellingId, nieuweStatus) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Bestellingen');
-  const orders = getSheetData('Bestellingen');
-  const order = orders.find(o => o.Bestelling_ID === bestellingId);
-  
-  if (order) {
-    sheet.getRange(order._rijNummer, 7).setValue(nieuweStatus);
-    return true;
-  }
-}
-    <!-- Koppeling met app.js -->
-    <script src="app.js"></script>
+      google.script.run.withSuccessHandler(res => {
+        document.getElementById('btn-login').innerText = 'Veilig Inloggen';
+        if (res.success) {
+          huidigeGebruiker = res;
+          if (res.rol === 'Klant') {
+            document.getElementById('klant-naam').innerText = res.naam;
+            document.getElementById('klant-saldo').innerText = Number(res.saldo).toFixed(2);
+            toonScherm('scherm-klant');
+            laadMenu();
+          } else {
+            toonScherm('scherm-kantine');
+            wisselKantineApp('orders'); // Start standaard in bestellingen app
+          }
+        } else {
+          document.getElementById('foutmelding').innerText = res.message;
+        }
+      }).verifieerLogin(naam, ww);
+    }
+
+    // --- KLANT LOGICA ---
+    function opwaarderen() {
+      const zeker = confirm("Weet je zeker dat je €5,00 aan je account wilt toevoegen?");
+      if (!zeker) return;
+
+      const code = prompt("Simulatie iDEAL: Voer je pincode in (typ '1234' om te slagen):");
+      if (code !== '1234') {
+        return alert("Transactie geannuleerd of onjuiste code.");
+      }
+
+      google.script.run.withSuccessHandler(nieuwSaldo => {
+        alert("Betaling geslaagd! €5,00 is toegevoegd.");
+        huidigeGebruiker.saldo = nieuwSaldo;
+        document.getElementById('klant-saldo').innerText = Number(nieuwSaldo).toFixed(2);
+      }).opwaarderen(huidigeGebruiker.userId, 5);
+    }
+
+    function laadMenu() {
+      google.script.run.withSuccessHandler(menu => {
+        const lijst = document.getElementById('menu-lijst');
+        lijst.innerHTML = '';
+        menu.forEach(item => {
+          // VOORRAAD IS NU VERBORGEN VOOR DE LEERLING
+          let knopHTML = item.Voorraad > 0 
+            ? `<button class="btn-klein" onclick="inMandje('${item.Naam}', ${item.Prijs})">+ Kies</button>` 
+            : `<span style="color:red; font-size:12px; font-weight:bold;">Uitverkocht</span>`;
+            
+          lijst.innerHTML += `
+            <div class="rij">
+              <div><strong>${item.Naam}</strong><br><small style="color:gray;">€${Number(item.Prijs).toFixed(2)}</small></div>
+              ${knopHTML}
+            </div>`;
+        });
+      }).haalMenuOp(huidigeGebruiker.orgId);
+    }
+
+    function inMandje(naam, prijs) {
+      mandje.push(naam);
+      totaalBedrag += Number(prijs);
+      document.getElementById('mandje-aantal').innerText = mandje.length;
+      document.getElementById('mandje-items').innerText = mandje.join(', ');
+      document.getElementById('mandje-totaal').innerText = totaalBedrag.toFixed(2);
+    }
+
+    function bestelNu() {
+      if (mandje.length === 0) return alert('Kies eerst een product!');
+      if (totaalBedrag > huidigeGebruiker.saldo) return alert('Oeps! Je hebt onvoldoende saldo. Waardeer eerst op.');
+
+      google.script.run.withSuccessHandler(res => {
+        if(res.success) {
+          alert(res.message);
+          huidigeGebruiker.saldo = res.nieuwSaldo;
+          document.getElementById('klant-saldo').innerText = Number(res.nieuwSaldo).toFixed(2);
+          mandje = []; totaalBedrag = 0;
+          document.getElementById('mandje-aantal').innerText = '0';
+          document.getElementById('mandje-items').innerText = 'Nog niets gekozen';
+          document.getElementById('mandje-totaal').innerText = '0.00';
+          laadMenu(); 
+        } else {
+          alert(res.message);
+        }
+      }).plaatsBestelling(huidigeGebruiker.orgId, huidigeGebruiker.userId, mandje, totaalBedrag);
+    }
+
+    // --- KANTINE LOGICA ---
+    function wisselKantineApp(appNaam) {
+      document.getElementById('app-orders').style.display = (appNaam === 'orders') ? 'block' : 'none';
+      document.getElementById('app-voorraad').style.display = (appNaam === 'voorraad') ? 'block' : 'none';
+      document.getElementById('app-orders-btn').className = (appNaam === 'orders') ? 'app-knop active-app' : 'app-knop';
+      document.getElementById('app-voorraad-btn').className = (appNaam === 'voorraad') ? 'app-knop active-app' : 'app-knop';
+      
+      if(appNaam === 'orders') laadBestellingen();
+      if(appNaam === 'voorraad') laadVoorraad();
+    }
+
+    function laadBestellingen() {
+      google.script.run.withSuccessHandler(orders => {
+        const lijst = document.getElementById('bestellingen-lijst');
+        lijst.innerHTML = orders.length === 0 ? 'Geen bestellingen gevonden.' : '';
+        
+        orders.reverse().forEach(o => {
+          let isNieuw = o.Status === 'Nieuw';
+          let bg = isNieuw ? '#fff3cd' : '#d4edda';
+          let knop = isNieuw ? `<button class="btn-klein" style="width:100%; margin-top:10px;" onclick="zetKlaar('${o.Bestelling_ID}')">Klaarzetten ✔️</button>` : `<div style="color:green; margin-top:10px; font-weight:bold;">Afgehandeld</div>`;
+          
+          lijst.innerHTML += `
+            <div class="rij" style="display:block; background:${bg}; padding:10px; border-radius:6px; margin-bottom:10px;">
+              <strong>${o.Bestelling_ID}</strong> (Klant: ${o.Gebruiker_ID})<br>
+              Producten: <b>${o.Items}</b><br>
+              Tijd: ${o.Timestamp}<br>
+              ${knop}
+            </div>`;
+        });
+      }).haalBestellingenOp(huidigeGebruiker.orgId);
+    }
+
+    function zetKlaar(orderId) {
+      google.script.run.withSuccessHandler(() => {
+        laadBestellingen();
+      }).updateOrderStatus(orderId, 'Gereed');
+    }
+
+    function laadVoorraad() {
+      google.script.run.withSuccessHandler(menu => {
+        const lijst = document.getElementById('voorraad-lijst');
+        lijst.innerHTML = '';
+        menu.forEach(item => {
+          lijst.innerHTML += `
+            <div class="rij">
+              <div><strong>${item.Naam}</strong><br>Huidig: <b>${item.Voorraad}</b> stuks</div>
+              <div>
+                <button class="btn-klein" style="background:#e74c3c;" onclick="wijzigVoorraad('${item.Product_ID}', -1)">-1</button>
+                <button class="btn-klein" style="background:#27ae60;" onclick="wijzigVoorraad('${item.Product_ID}', 1)">+1</button>
+              </div>
+            </div>`;
+        });
+      }).haalMenuOp(huidigeGebruiker.orgId);
+    }
+
+    function wijzigVoorraad(productId, verschil) {
+      google.script.run.withSuccessHandler(() => {
+        laadVoorraad();
+      }).pasVoorraadAan(productId, verschil);
+    }
+  </script>
 </body>
 </html>
