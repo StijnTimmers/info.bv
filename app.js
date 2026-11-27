@@ -1,131 +1,130 @@
-// 1. Het Menu (uit tabblad 'Menu')
-let menu = [
-    { id: 1, categorie: "Broodje", naam: "Hamburger", prijs: 7.49 },
-    { id: 2, categorie: "Drinken", naam: "Cola", prijs: 2.99 },
-    { id: 3, categorie: "Snoep", naam: "Frutti", prijs: 0.99 }
-];
-
-// 2. Leerling-saldo's (uit tabblad 'Saldo')
-let saldoLijst = {
-    "234567": 0.00,
-    "a678765": 10.00
-};
-
-// 3. Bestellingen & Logboek (uit tabbladen 'Data' en 'Log')
-let bestellingen = [];
-let logboek = [
-    { timestamp: "2026-09-25 12:00:37", message: "Nieuwe gebruiker (234567) kreeg €0 starttegoed." }
-];
-
-function voegLogToe(bericht) {
-    const nu = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    logboek.push({ timestamp: nu, message: bericht });
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('E&S Software - Kantine')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// HOOFDFUNCTIE: Het bestelmenu aanpassen (inclusief foutafhandeling voor Kwaliteit Issue 1)
-function pasMenuAan(actie, item) {
-    if (actie === "toevoegen") {
-        if (!item.naam || item.prijs <= 0) {
-            console.error("Fout: Ongeldige productnaam of negatieve/nul prijs.");
-            return "Fout: Prijs moet groter dan €0 zijn.";
-        }
-        menu.push(item);
-        voegLogToe(`Menu uitgebreid: ${item.naam} (${item.categorie}) voor €${item.prijs.toFixed(2)}.`);
-    } 
-    else if (actie === "wijzigen") {
-        if (item.prijs !== undefined && item.prijs <= 0) {
-            return "Fout: Prijs moet groter dan €0 zijn.";
-        }
-        const index = menu.findIndex(product => product.id === item.id);
-        if (index !== -1) {
-            menu[index] = { ...menu[index], ...item };
-            voegLogToe(`Menu aangepast: ${menu[index].naam} is nu €${menu[index].prijs.toFixed(2)}.`);
-        }
-    } 
-    else if (actie === "verwijderen") {
-        menu = menu.filter(product => product.id !== item.id);
-        voegLogToe(`Product met ID ${item.id} verwijderd van het menu.`);
-    }
-    
-    // Update de tabel op de webpagina als deze in de browser geopend is
-    toonMenuOpPagina();
-    return menu;
+function setupEnVulTestData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  const structuur = {
+    'Organisaties': ['Organisatie_ID', 'Naam', 'Actief'],
+    'Gebruikers': ['Gebruiker_ID', 'Organisatie_ID', 'Gebruikersnaam', 'Wachtwoord', 'Rol', 'Saldo'],
+    'Menu': ['Product_ID', 'Organisatie_ID', 'Categorie', 'Naam', 'Prijs', 'Voorraad'],
+    'Bestellingen': ['Bestelling_ID', 'Organisatie_ID', 'Timestamp', 'Gebruiker_ID', 'Items', 'Totaalbedrag', 'Status']
+  };
+
+  for (const sheetName in structuur) {
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) sheet = ss.insertSheet(sheetName);
+    sheet.clear(); 
+    const headers = structuur[sheetName];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+  }
+
+  ss.getSheetByName('Organisaties').appendRow(['ORG-001', 'Test School', true]);
+  ss.getSheetByName('Gebruikers').appendRow(['USR-1', 'ORG-001', 'stijn', '1234', 'Klant', 10.00]);
+  ss.getSheetByName('Gebruikers').appendRow(['USR-2', 'ORG-001', 'kantine', '1234', 'Medewerker', 0.00]);
+  
+  ss.getSheetByName('Menu').appendRow(['PRD-1', 'ORG-001', 'Broodje', 'Hamburger', 2.50, 20]);
+  ss.getSheetByName('Menu').appendRow(['PRD-2', 'ORG-001', 'Drinken', 'Cola', 1.50, 30]);
+  ss.getSheetByName('Menu').appendRow(['PRD-3', 'ORG-001', 'Snoep', 'Frutti', 1.00, 50]);
 }
 
-// NIEUWE FUNCTIE (Product Issue 2): Saldo opwaarderen voor een leerling
-function waardeerSaldoOp(leerlingnummer, bedrag) {
-    if (bedrag <= 0) {
-        return "Fout: Opwaardeerbedrag moet positief zijn.";
-    }
-    if (saldoLijst[leerlingnummer] === undefined) {
-        saldoLijst[leerlingnummer] = 0.00;
-        voegLogToe(`Nieuwe gebruiker (${leerlingnummer}) aangemaakt.`);
-    }
-    saldoLijst[leerlingnummer] += bedrag;
-    voegLogToe(`Saldo van ${leerlingnummer} opgewaardeerd met €${bedrag.toFixed(2)}. Nieuw saldo: €${saldoLijst[leerlingnummer].toFixed(2)}.`);
-    return `Nieuw saldo: €${saldoLijst[leerlingnummer].toFixed(2)}`;
+function getSheetData(sheetName) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  return data.map((row, index) => {
+    let obj = { _rijNummer: index + 2 };
+    headers.forEach((h, i) => obj[h] = row[i]);
+    return obj;
+  });
 }
 
-// Bestelling plaatsen (inclusief check op onbekend leerlingnummer voor Kwaliteit Issue 1)
-function plaatsBestelling(leerlingnummer, productId) {
-    if (saldoLijst[leerlingnummer] === undefined) {
-        return "Fout: Onbekend leerlingnummer.";
-    }
-    const product = menu.find(p => p.id === productId);
-    if (!product) return "Fout: Product bestaat niet.";
-
-    if (saldoLijst[leerlingnummer] >= product.prijs) {
-        saldoLijst[leerlingnummer] = Number((saldoLijst[leerlingnummer] - product.prijs).toFixed(2));
-        bestellingen.push({
-            timestamp: new Date().toISOString(),
-            leerlingnummer: leerlingnummer,
-            bestelling: product.naam,
-            totaalbedrag: product.prijs
-        });
-        voegLogToe(`Leerling ${leerlingnummer} bestelde ${product.naam} (€${product.prijs.toFixed(2)}).`);
-        return "Bestelling geslaagd!";
-    } else {
-        return "Onvoldoende saldo!";
-    }
+function verifieerLogin(gebruikersnaam, wachtwoord) {
+  const gebruikers = getSheetData('Gebruikers');
+  const user = gebruikers.find(u => String(u.Gebruikersnaam).toLowerCase() === String(gebruikersnaam).toLowerCase() && String(u.Wachtwoord) === String(wachtwoord));
+  
+  if (user) {
+    return { success: true, userId: user.Gebruiker_ID, orgId: user.Organisatie_ID, rol: user.Rol, naam: user.Gebruikersnaam, saldo: user.Saldo };
+  }
+  return { success: false, message: 'Onjuiste inloggegevens!' };
 }
 
-// KOPPELING MET HTML (Product Issue 1)
-function toonMenuOpPagina() {
-    if (typeof document === "undefined") return;
-    const tabelBody = document.getElementById("menu-tabel");
-    if (!tabelBody) return;
+function opwaarderen(userId, bedrag) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Gebruikers');
+  const gebruikers = getSheetData('Gebruikers');
+  const user = gebruikers.find(u => u.Gebruiker_ID === userId);
+  
+  if (user) {
+    const nieuwSaldo = Number(user.Saldo) + Number(bedrag);
+    sheet.getRange(user._rijNummer, 6).setValue(nieuwSaldo); 
+    return nieuwSaldo;
+  }
+  return false;
+}
 
-    tabelBody.innerHTML = "";
-    menu.forEach(item => {
-        const rij = `<tr>
-            <td>${item.id}</td>
-            <td>${item.categorie}</td>
-            <td>${item.naam}</td>
-            <td>€${item.prijs.toFixed(2)}</td>
-            <td><button class="btn-verwijder" onclick="pasMenuAan('verwijderen', { id: ${item.id} })">Verwijder</button></td>
-        </tr>`;
-        tabelBody.innerHTML += rij;
+function haalMenuOp(orgId) {
+  return getSheetData('Menu').filter(item => String(item.Organisatie_ID) === String(orgId));
+}
+
+function pasVoorraadAan(productId, verschil) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Menu');
+  const menu = getSheetData('Menu');
+  const item = menu.find(m => m.Product_ID === productId);
+  
+  if (item) {
+    let nieuweVoorraad = Number(item.Voorraad) + Number(verschil);
+    if(nieuweVoorraad < 0) nieuweVoorraad = 0;
+    sheet.getRange(item._rijNummer, 6).setValue(nieuweVoorraad); 
+  }
+}
+
+function plaatsBestelling(orgId, userId, items, totaal) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  const gebruikers = getSheetData('Gebruikers');
+  const user = gebruikers.find(u => u.Gebruiker_ID === userId);
+  if (Number(user.Saldo) < Number(totaal)) return { success: false, message: 'Onvoldoende saldo!' };
+  
+  ss.getSheetByName('Gebruikers').getRange(user._rijNummer, 6).setValue(Number(user.Saldo) - Number(totaal));
+
+  const menuSheet = ss.getSheetByName('Menu');
+  const menuData = getSheetData('Menu');
+  items.forEach(besteldItem => {
+    let menuItem = menuData.find(m => m.Naam === besteldItem);
+    if(menuItem) {
+      menuSheet.getRange(menuItem._rijNummer, 6).setValue(Number(menuItem.Voorraad) - 1);
+      menuItem.Voorraad -= 1;
+    }
+  });
+
+  const sheet = ss.getSheetByName('Bestellingen');
+  const id = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+  sheet.appendRow([id, orgId, new Date(), userId, items.join(', '), totaal, 'Nieuw']);
+  
+  return { success: true, message: 'Bestelling ' + id + ' is geplaatst!', nieuwSaldo: (Number(user.Saldo) - Number(totaal)) };
+}
+
+function haalBestellingenOp(orgId) {
+  return getSheetData('Bestellingen')
+    .filter(b => String(b.Organisatie_ID) === String(orgId))
+    .map(b => {
+      b.Timestamp = new Date(b.Timestamp).toLocaleString('nl-NL');
+      return b;
     });
 }
 
-function voegProductToeVanafPagina() {
-    const naam = document.getElementById("nieuw-naam").value;
-    const categorie = document.getElementById("nieuw-categorie").value;
-    const prijs = parseFloat(document.getElementById("nieuw-prijs").value);
-
-    if (!naam || isNaN(prijs) || prijs <= 0) {
-        alert("Vul een geldige naam en een prijs hoger dan €0,00 in!");
-        return;
-    }
-
-    const nieuwId = menu.length > 0 ? Math.max(...menu.map(p => p.id)) + 1 : 1;
-    pasMenuAan("toevoegen", { id: nieuwId, categorie: categorie, naam: naam, prijs: prijs });
-
-    document.getElementById("nieuw-naam").value = "";
-    document.getElementById("nieuw-prijs").value = "";
-}
-
-// Laad het menu zodra de pagina opent
-if (typeof window !== "undefined") {
-    window.onload = toonMenuOpPagina;
+function updateOrderStatus(bestellingId, nieuweStatus) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Bestellingen');
+  const orders = getSheetData('Bestellingen');
+  const order = orders.find(o => o.Bestelling_ID === bestellingId);
+  
+  if (order) {
+    sheet.getRange(order._rijNummer, 7).setValue(nieuweStatus);
+    return true;
+  }
 }
