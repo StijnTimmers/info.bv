@@ -148,7 +148,6 @@
         const lijst = document.getElementById('menu-lijst');
         lijst.innerHTML = '';
         menu.forEach(item => {
-          // VOORRAAD IS NU VERBORGEN VOOR DE LEERLING
           let knopHTML = item.Voorraad > 0 
             ? `<button class="btn-klein" onclick="inMandje('${item.Naam}', ${item.Prijs})">+ Kies</button>` 
             : `<span style="color:red; font-size:12px; font-weight:bold;">Uitverkocht</span>`;
@@ -249,6 +248,10 @@
       google.script.run.withSuccessHandler(() => {
         laadVoorraad();
       }).pasVoorraadAan(productId, verschil);
+    }
+  </script>
+</body>
+</html>
     }
   </script>
 </body>
