@@ -1,6 +1,6 @@
 // --- SUPABASE CONFIGURATIE ---
-const SUPABASE_URL = 'VUL_HIER_JE_PROJECT_URL_IN';
-const SUPABASE_ANON_KEY = 'VUL_HIER_JE_ANON_KEY_IN';
+const SUPABASE_URL = 'https://zblxpyoobklzzyqhcvdw.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_bcHT3R-6t4njYXU_nDyNjA_w1tcN_rO';
 
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
